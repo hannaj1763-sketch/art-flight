@@ -108,13 +108,20 @@
   @media (max-width:620px){
     .brand{display:none;}
   }
+  /* 작은 휴대폰: 점수판이 잘리지 않게 */
+  @media (max-width:380px){
+    header{gap:6px;padding-left:10px;padding-right:10px;}
+    .hud{gap:8px;}
+    .hud-item:nth-child(3){display:none;}
+    .sound-btn{padding:5px 7px;font-size:9px;letter-spacing:.06em;}
+  }
 </style>
 </head>
 <body>
 <div id="wrap">
   <header>
     <div class="left-nav">
-      <a class="back" href="../">← 갤러리로</a>
+      <a class="back" href="../gallery2026/?open=play">← 갤러리로</a>
       <button class="sound-btn" id="soundToggle" type="button">SOUND ON</button>
     </div>
     <div class="brand">
@@ -330,7 +337,7 @@
           '<li><b>P / ESC</b> 일시정지</li>' +
         '</ul>' +
         '<button class="btn" data-act="start">전시 입장 (게임 시작)</button>' +
-        '<a class="ghost" href="../">← 갤러리로 돌아가기</a>' +
+        '<a class="ghost" href="../gallery2026/?open=play">← 갤러리로 돌아가기</a>' +
       '</div>'
     );
   }
@@ -342,7 +349,7 @@
         '<h2>잠시 멈춤</h2>' +
         '<p class="desc">작품을 감상하며 잠시 숨을 고르세요.</p>' +
         '<button class="btn" data-act="resume">계속하기</button>' +
-        '<a class="ghost" href="../">← 갤러리로</a>' +
+        '<a class="ghost" href="../gallery2026/?open=play">← 갤러리로</a>' +
       '</div>'
     );
   }
@@ -358,7 +365,7 @@
           '<div><span class="k">Best</span><span class="v">' + state.best + '</span></div>' +
         '</div>' +
         '<button class="btn" data-act="start">새 캔버스 시작</button>' +
-        '<a class="ghost" href="../">← 갤러리로 돌아가기</a>' +
+        '<a class="ghost" href="../gallery2026/?open=play">← 갤러리로 돌아가기</a>' +
       '</div>'
     );
   }
@@ -792,4 +799,217 @@
         ctx.beginPath();
         ctx.moveTo(p0.x, p0.y + (player.trail.length - t) * 1.4);
         ctx.lineTo(p1.x, p1.y + (player.trail.length - t - 1) * 1.4);
-        ctx.strokeStyle = 'rgba(28,27,25,' + (ratio * 0.
+        ctx.strokeStyle = 'rgba(28,27,25,' + (ratio * 0.18) + ')';
+        ctx.lineWidth = 1 + ratio * 4;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 무적 시간에는 깜빡여요
+    if (state.invuln > 0 && Math.floor(state.invuln / 90) % 2 === 0) return;
+
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.rotate(clamp(player.vx * 0.5, -0.35, 0.35));
+    // 붓 모양 비행체
+    ctx.fillStyle = INK;
+    ctx.beginPath();
+    ctx.moveTo(0, -player.r - 6);
+    ctx.quadraticCurveTo(player.r, -2, player.r * 0.9, player.r);
+    ctx.lineTo(-player.r * 0.9, player.r);
+    ctx.quadraticCurveTo(-player.r, -2, 0, -player.r - 6);
+    ctx.fill();
+    ctx.fillStyle = state.tripleTimer > 0 ? TERRA : '#b08b57';
+    ctx.fillRect(-player.r * 0.55, player.r - 1, player.r * 1.1, 7);
+    ctx.fillStyle = '#fffdf8';
+    ctx.beginPath(); ctx.arc(0, -2, 3.2, 0, Math.PI * 2); ctx.fill();
+    if (player.shield) {
+      ctx.strokeStyle = SAGE; ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.6 + Math.sin(state.elapsed * 0.01) * 0.25;
+      ctx.beginPath(); ctx.arc(0, 0, player.r + 10, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawEnemies() {
+    for (var i = 0; i < enemies.length; i++) {
+      var en = enemies[i];
+      ctx.save();
+      ctx.translate(en.x, en.y);
+      ctx.rotate(en.rot);
+      if (en.type === 'frame') {
+        // 액자: 두 번 맞혀야 부서져요
+        ctx.strokeStyle = en.flash > 0 ? TERRA : INK;
+        ctx.lineWidth = en.hp === en.maxhp ? 4 : 2.5;
+        ctx.strokeRect(-en.r, -en.r * 0.8, en.r * 2, en.r * 1.6);
+        ctx.fillStyle = 'rgba(176,139,87,0.22)';
+        ctx.fillRect(-en.r + 4, -en.r * 0.8 + 4, en.r * 2 - 8, en.r * 1.6 - 8);
+        if (en.hp < en.maxhp) {
+          ctx.strokeStyle = 'rgba(28,27,25,0.5)'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(-en.r * 0.6, -en.r * 0.5); ctx.lineTo(en.r * 0.2, en.r * 0.1); ctx.lineTo(en.r * 0.5, en.r * 0.6); ctx.stroke();
+        }
+      } else {
+        // 물감 방울 (금색은 보너스)
+        ctx.fillStyle = en.flash > 0 ? '#fffdf8' : en.color;
+        ctx.beginPath();
+        for (var k = 0; k <= 8; k++) {
+          var a = (k / 8) * Math.PI * 2;
+          var rr = en.r * (0.86 + 0.14 * Math.sin(a * 3 + en.phase));
+          var x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+          if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.beginPath(); ctx.arc(-en.r * 0.3, -en.r * 0.35, en.r * 0.22, 0, Math.PI * 2); ctx.fill();
+        if (en.type === 'gold') {
+          ctx.strokeStyle = '#fff3c4'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(0, 0, en.r + 4 + Math.sin(state.elapsed * 0.012) * 2, 0, Math.PI * 2); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawItems() {
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      var icon = it.type === 'triple' ? '✦' : it.type === 'shield' ? '◎' : '♥';
+      var col = it.type === 'triple' ? TERRA : it.type === 'shield' ? SAGE : '#c0455e';
+      ctx.save();
+      ctx.translate(it.x, it.y);
+      ctx.fillStyle = '#fffdf8';
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, 0, it.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = col;
+      ctx.font = '600 13px Georgia, serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(icon, 0, 1);
+      ctx.restore();
+    }
+  }
+
+  function drawBullets() {
+    ctx.fillStyle = state.tripleTimer > 0 ? TERRA : INK;
+    for (var i = 0; i < bullets.length; i++) {
+      var b = bullets[i];
+      ctx.beginPath();
+      ctx.ellipse(b.x, b.y, b.r * 0.8, b.r * 2, Math.atan2(b.vx, -b.vy), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawParticles() {
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      ctx.globalAlpha = Math.max(0, 1 - p.life / p.max);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFloaters() {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '600 12px "Helvetica Neue", Arial, sans-serif';
+    for (var i = 0; i < floaters.length; i++) {
+      var f = floaters[i];
+      ctx.globalAlpha = Math.max(0, 1 - f.life / f.max);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function render() {
+    ctx.save();
+    if (state.shake > 0) {
+      var m = Math.min(6, state.shake / 60);
+      ctx.translate(rand(-m, m), rand(-m, m));
+    }
+    drawBackground();
+    drawItems();
+    drawEnemies();
+    drawBullets();
+    drawPlayer();
+    drawParticles();
+    drawFloaters();
+    ctx.restore();
+  }
+
+  /* ---------- Loop ---------- */
+  var last = 0;
+  function loop(now) {
+    var dt = last ? Math.min(40, now - last) : 16;
+    last = now;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------- Input ---------- */
+  function toLocalX(e) {
+    var rect = canvas.getBoundingClientRect();
+    return (e.clientX - rect.left) * (W / rect.width);
+  }
+  canvas.addEventListener('pointerdown', function (e) {
+    initAudio();
+    if (state.mode !== 'playing') return;
+    pointer.drag = true;
+    pointer.x = toLocalX(e);
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  });
+  canvas.addEventListener('pointermove', function (e) {
+    if (!pointer.drag) return;
+    pointer.x = toLocalX(e);
+    e.preventDefault();
+  });
+  function endDrag() { pointer.drag = false; }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  window.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') { keys.left = true; e.preventDefault(); }
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') { keys.right = true; e.preventDefault(); }
+    else if (k === 'p' || k === 'P' || k === 'Escape') { togglePause(); }
+    else if ((k === 'Enter' || k === ' ') && (state.mode === 'ready' || state.mode === 'gameover')) { e.preventDefault(); startGame(); }
+  });
+  window.addEventListener('keyup', function (e) {
+    var k = e.key;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.left = false;
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.right = false;
+  });
+
+  overlay.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!btn) return;
+    var act = btn.getAttribute('data-act');
+    if (act === 'start') startGame();
+    else if (act === 'resume') togglePause();
+  });
+
+  // 다른 앱으로 나가면 자동으로 잠시 멈춤
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && state.mode === 'playing') togglePause();
+  });
+
+  var resizeTimer = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 80);
+  });
+
+  /* ---------- Init ---------- */
+  resize();
+  updateHud();
+  screenStart();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
