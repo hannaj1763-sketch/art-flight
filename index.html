@@ -69,6 +69,28 @@
   }
   canvas{display:block;width:100%;height:100%;touch-action:none;}
 
+  /* 속담 문제판 */
+  #quiz{
+    position:absolute;left:8px;right:8px;top:8px;z-index:2;pointer-events:none;
+    background:rgba(255,253,248,.94);border:1px solid var(--line);border-radius:10px;
+    padding:8px 12px 9px;text-align:center;box-shadow:0 8px 20px -14px rgba(0,0,0,.45);
+    display:none;
+  }
+  #quiz.on{display:block;}
+  #quiz .qn{font-size:10px;letter-spacing:.2em;color:var(--terra);font-weight:700;}
+  #quiz .qt{font-size:clamp(15px,4.4vw,20px);font-weight:800;line-height:1.45;margin-top:2px;word-break:keep-all;}
+  #quiz .blank{display:inline-block;min-width:3.2em;border-bottom:3px solid var(--terra);color:transparent;margin:0 2px;}
+  #quiz .ans{color:var(--terra);border-bottom:3px solid var(--terra);padding:0 2px;}
+  #quiz .mean{font-size:12.5px;color:#5c5a55;margin-top:4px;line-height:1.45;word-break:keep-all;}
+  #quiz .tbar{height:3px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden;}
+  #quiz .tbar i{display:block;height:100%;width:100%;background:var(--gold);transform-origin:left;}
+  #quiz.hint .tbar i{background:#e8b923;}
+  #quiz .htxt{font-size:11px;color:#b08b57;margin-top:3px;min-height:14px;}
+  .learned{max-height:34vh;overflow-y:auto;text-align:left;font-size:12px;line-height:1.5;margin:0 0 14px;border-top:1px solid var(--line);padding-top:8px;}
+  .learned div{padding:5px 0;border-bottom:1px dashed var(--line);word-break:keep-all;}
+  .learned b{color:var(--terra);}
+  .learned small{display:block;opacity:.7;}
+
   .overlay{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     padding:16px;background:rgba(247,243,236,.72);
@@ -126,7 +148,7 @@
     </div>
     <div class="brand">
       <h1>아트 비행</h1>
-      <span>Art Flight</span>
+      <span>속담 편</span>
     </div>
     <div class="hud">
       <div class="hud-item"><span class="k">COMBO</span><span class="v combo-v" id="combo">0</span></div>
@@ -139,6 +161,7 @@
   <main>
     <div id="frame">
       <canvas id="game"></canvas>
+      <div id="quiz"><div class="qn" id="qn"></div><div class="qt" id="qt"></div><div class="mean" id="qmean"></div><div class="tbar"><i id="qbar"></i></div><div class="htxt" id="qhint"></div></div>
       <div class="overlay" id="overlay"></div>
     </div>
   </main>
@@ -213,6 +236,50 @@
     elSoundBtn.style.opacity = soundEnabled ? '0.85' : '0.4';
   });
 
+  /* ---------- 속담 문제 (빈칸 = 정답) ---------- */
+  // [앞, 정답, 뒤, [오답 3개], 뜻]
+  var PROVERBS = [
+    ['가는 말이 고와야', '오는 말이', '곱다', ['오는 길이', '가는 날이', '오는 소가'], '내가 남에게 말을 곱게 해야 남도 나에게 곱게 해요.'],
+    ['낮말은 새가 듣고', '밤말은', '쥐가 듣는다', ['아침말은', '큰말은', '귓말은'], '아무도 안 듣는 것 같아도 말은 새어 나가니 조심해요.'],
+    ['원숭이도', '나무에서', '떨어진다', ['지붕에서', '하늘에서', '침대에서'], '아무리 잘하는 사람도 실수할 때가 있어요.'],
+    ['티끌 모아', '태산', '', ['바다', '구름', '모래'], '작은 것도 모으면 아주 커져요.'],
+    ['세 살 버릇', '여든까지', '간다', ['열 살까지', '내일까지', '학교까지'], '어릴 때 생긴 습관은 아주 오래가요.'],
+    ['백지장도', '맞들면', '낫다', ['접으면', '찢으면', '혼자면'], '쉬운 일도 함께하면 더 쉬워요.'],
+    ['소 잃고', '외양간', '고친다', ['대문', '지붕', '자동차'], '일이 잘못된 뒤에 손써도 소용없어요.'],
+    ['우물 안', '개구리', '', ['두꺼비', '물고기', '거북이'], '넓은 세상을 모르고 좁게만 생각하는 사람이에요.'],
+    ['고래 싸움에', '새우', '등 터진다', ['문어', '상어', '오징어'], '힘센 사람들 싸움에 약한 사람이 피해를 봐요.'],
+    ['등잔 밑이', '어둡다', '', ['밝다', '뜨겁다', '차갑다'], '가까이 있는 것을 오히려 잘 몰라요.'],
+    ['하늘이 무너져도', '솟아날', '구멍이 있다', ['숨을', '쉬어갈', '들어갈'], '아무리 어려워도 해결할 방법은 있어요.'],
+    ['꿩 대신', '닭', '', ['오리', '참새', '까치'], '원하는 게 없으면 비슷한 것으로 대신해요.'],
+    ['누워서', '떡', '먹기', ['밥', '빵', '국'], '아주 쉬운 일이에요.'],
+    ['호랑이도 제 말 하면', '온다', '', ['운다', '잔다', '뛴다'], '이야기하던 사람이 마침 나타났을 때 써요.'],
+    ['발 없는 말이', '천 리', '간다', ['오 리', '십 리', '백 리'], '말은 아주 빠르고 멀리 퍼져요.'],
+    ['지렁이도 밟으면', '꿈틀한다', '', ['웃는다', '잠든다', '노래한다'], '약한 존재도 너무 괴롭히면 화를 내요.'],
+    ['시작이', '반이다', '', ['끝이다', '전부다', '처음이다'], '시작하면 벌써 절반은 한 거예요.'],
+    ['콩 심은 데 콩 나고', '팥', '심은 데 팥 난다', ['쌀', '보리', '옥수수'], '한 대로 결과가 나와요.'],
+    ['낫 놓고', '기역', '자도 모른다', ['니은', '디귿', '리을'], '아주 쉬운 것도 모르는 사람을 말해요.'],
+    ['개구리', '올챙이', '적 생각 못 한다', ['아기', '송사리', '알'], '잘된 뒤에 어려웠던 시절을 잊어버려요.'],
+    ['돌다리도', '두들겨', '보고 건너라', ['쳐다', '밟아', '세어'], '확실해 보여도 한 번 더 확인해요.'],
+    ['빈 수레가', '요란하다', '', ['조용하다', '가볍다', '빠르다'], '아는 게 적은 사람이 더 떠들어요.'],
+    ['벼는 익을수록', '고개를', '숙인다', ['허리를', '꼬리를', '잎을'], '훌륭한 사람일수록 겸손해요.'],
+    ['열 번 찍어 안 넘어가는', '나무', '없다', ['바위', '기둥', '대문'], '꾸준히 노력하면 이룰 수 있어요.'],
+    ['아니 땐 굴뚝에', '연기', '날까', ['불', '냄새', '바람'], '원인이 있어야 결과가 생겨요.'],
+    ['남의 떡이 더', '커', '보인다', ['작아', '예뻐', '빨라'], '남의 것이 괜히 더 좋아 보여요.'],
+    ['금강산도', '식후경', '', ['여행길', '구경길', '아침밥'], '배가 불러야 구경도 즐거워요.'],
+    ['바늘 도둑이', '소', '도둑 된다', ['닭', '말', '쌀'], '작은 나쁜 버릇이 점점 커져요.'],
+    ['쇠뿔도', '단김에', '빼라', ['천천히', '내일에', '혼자서'], '할 일은 마음먹었을 때 바로 해요.'],
+    ['말 한마디로', '천 냥', '빚을 갚는다', ['백 냥', '열 냥', '만 냥'], '말을 잘하면 큰 어려움도 풀려요.'],
+    ['뛰는 놈 위에', '나는', '놈 있다', ['기는', '걷는', '자는'], '잘하는 사람 위에 더 잘하는 사람이 있어요.'],
+    ['구슬이 서 말이라도', '꿰어야', '보배', ['닦아야', '모아야', '세어야'], '좋은 것도 다듬어 써야 가치가 있어요.'],
+    ['가랑비에', '옷', '젖는 줄 모른다', ['신발', '머리', '우산'], '작은 것도 쌓이면 크게 돼요.'],
+    ['공든 탑이', '무너지랴', '', ['빛나랴', '자라랴', '움직이랴'], '정성껏 한 일은 헛되지 않아요.'],
+    ['서당 개 삼 년이면', '풍월을', '읊는다', ['노래를', '동요를', '숫자를'], '오래 보고 들으면 저절로 알게 돼요.'],
+    ['까마귀 날자', '배', '떨어진다', ['사과', '감', '밤'], '우연히 같이 일어나 괜히 오해를 받아요.'],
+    ['믿는 도끼에', '발등', '찍힌다', ['손등', '무릎', '이마'], '믿던 사람에게 배신당해요.'],
+    ['식은 죽', '먹기', '', ['끓이기', '쏟기', '식히기'], '아주 쉬운 일이에요.'],
+    ['같은 값이면', '다홍치마', '', ['비단옷', '꽃신발', '파란치마'], '값이 같으면 더 좋은 것을 골라요.']
+  ];
+
   /* ---------- Setup ---------- */
   var frameEl = document.getElementById('frame');
   var canvas = document.getElementById('game');
@@ -245,8 +312,22 @@
     invuln: 0,
     shake: 0,
     elapsed: 0,
-    tripleTimer: 0
+    tripleTimer: 0,
+    qIndex: 0,          // 이번 판 몇 번째 문제
+    qTime: 0,           // 이 문제를 본 시간(ms)
+    waveTimer: 0,
+    reveal: 0,          // 정답 뒤 보여주는 시간
+    correct: 0,
+    hinted: false
   };
+  var Q_PER_GAME = 10, HINT_MS = 7000, WAVE_MS = 3300;
+  var quizSet = [], curQ = null, learned = [];
+  var elQuiz = document.getElementById('quiz');
+  var elQn = document.getElementById('qn');
+  var elQt = document.getElementById('qt');
+  var elQmean = document.getElementById('qmean');
+  var elQbar = document.getElementById('qbar');
+  var elQhint = document.getElementById('qhint');
 
   var player = { x: 180, y: 480, r: 13, vx: 0, shield: false, trail: [] };
   var bullets = [];
@@ -328,15 +409,15 @@
   function screenStart() {
     showOverlay(
       '<div class="card">' +
-        '<p class="eyebrow">Gallery 2026 · Mini Game</p>' +
-        '<h2>아트 비행</h2>' +
-        '<p class="desc">떨어지는 물감과 액자를 맞춰 캔버스를 채우세요.<br>연속 명중 시 콤보 점수와 특수 아이템이 등장합니다.</p>' +
+        '<p class="eyebrow">Gallery 2026 · 속담 편</p>' +
+        '<h2>아트 비행 · 속담 부수기</h2>' +
+        '<p class="desc">위에 나온 속담의 <b>빈칸</b>에 들어갈 말을 찾아<br>그 말이 적힌 물감 방울을 쏘세요!</p>' +
         '<ul class="keys">' +
-          '<li><b>← → / A D</b> 또는 <b>화면 드래그</b>로 이동</li>' +
-          '<li><b>물감 놓침</b> 콤보 초기화 · <b>액자 파괴</b> 아이템 드롭</li>' +
-          '<li><b>P / ESC</b> 일시정지</li>' +
+          '<li><b>정답</b> 큰 점수 + 콤보 · <b>틀린 말</b> 콤보가 끊겨요</li>' +
+          '<li>못 찾고 있으면 <b>정답 방울이 반짝반짝</b> 빛나요</li>' +
+          '<li><b>화면 드래그</b> 또는 <b>← →</b>로 이동 · 방울에 부딪히면 ● 하나 잃어요</li>' +
         '</ul>' +
-        '<button class="btn" data-act="start">전시 입장 (게임 시작)</button>' +
+        '<button class="btn" data-act="start">시작하기 (속담 10문제)</button>' +
         '<a class="ghost" href="../gallery2026/?open=play">← 갤러리로 돌아가기</a>' +
       '</div>'
     );
@@ -355,16 +436,21 @@
   }
 
   function screenGameOver() {
+    var clear = state.qIndex >= Q_PER_GAME && state.lives > 0;
+    var list = learned.map(function (q) {
+      return '<div>' + q[0] + ' <b>' + q[1] + '</b> ' + q[2] + '<small>' + q[4] + '</small></div>';
+    }).join('');
     showOverlay(
-      '<div class="card">' +
-        '<p class="eyebrow">Exhibition Fin</p>' +
-        '<h2>작품 완성</h2>' +
+      '<div class="card" style="max-height:94%;overflow-y:auto">' +
+        '<p class="eyebrow">' + (clear ? '속담 10문제 완료' : 'Game Over') + '</p>' +
+        '<h2>' + (state.correct >= 9 ? '속담 박사! 🎓' : state.correct >= 6 ? '속담 척척! ✨' : '속담 새싹 🌱') + '</h2>' +
         '<div class="scoreline">' +
+          '<div><span class="k">정답</span><span class="v">' + state.correct + '/' + Q_PER_GAME + '</span></div>' +
           '<div><span class="k">Score</span><span class="v">' + state.score + '</span></div>' +
           '<div><span class="k">Max Combo</span><span class="v">' + state.maxCombo + '</span></div>' +
-          '<div><span class="k">Best</span><span class="v">' + state.best + '</span></div>' +
         '</div>' +
-        '<button class="btn" data-act="start">새 캔버스 시작</button>' +
+        (list ? '<div class="learned">' + list + '</div>' : '') +
+        '<button class="btn" data-act="start">새 속담으로 다시</button>' +
         '<a class="ghost" href="../gallery2026/?open=play">← 갤러리로 돌아가기</a>' +
       '</div>'
     );
@@ -383,6 +469,11 @@
     state.shake = 0;
     state.elapsed = 0;
     state.tripleTimer = 0;
+    state.qIndex = 0; state.correct = 0; state.reveal = 0;
+    learned = [];
+    var pool = PROVERBS.slice();
+    for (var i = pool.length - 1; i > 0; i--) { var j = (Math.random() * (i + 1)) | 0; var t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
+    quizSet = pool.slice(0, Q_PER_GAME);
 
     bullets.length = 0;
     enemies.length = 0;
@@ -405,6 +496,7 @@
     resetGame();
     state.mode = 'playing';
     hideOverlay();
+    nextQuestion(true);
   }
 
   function togglePause() {
@@ -419,6 +511,7 @@
 
   function gameOver() {
     state.mode = 'gameover';
+    elQuiz.classList.remove('on');
     pointer.drag = false;
     updateHud();
     screenGameOver();
@@ -465,35 +558,105 @@
     });
   }
 
-  function spawnEnemy() {
-    var diff = Math.min(state.score / 800, 1);
-    var r = rand(13, 22);
-    var type = 'blob', hp = 1, pts = 10;
-    var color = PALETTE[(Math.random() * PALETTE.length) | 0];
-    var roll = Math.random();
+  /* ---------- 속담 문제 ---------- */
+  function quizTop() { return elQuiz.classList.contains('on') ? elQuiz.offsetHeight + 12 : 10; }
 
-    if (roll > 0.91 && state.score > 100) {
-      type = 'gold'; hp = 1; pts = 60; color = GOLD; r = 13;
-    } else if (roll > 0.65 && state.score > 50) {
-      type = 'frame'; hp = 2; pts = 30; color = INK; r = rand(15, 20);
+  function renderQuiz(showAnswer) {
+    var q = curQ;
+    elQn.textContent = '속담 ' + (state.qIndex + 1) + ' / ' + Q_PER_GAME;
+    elQt.innerHTML = q[0] + ' ' + (showAnswer ? '<span class="ans">' + q[1] + '</span>' : '<span class="blank">' + q[1] + '</span>') + (q[2] ? ' ' + q[2] : '');
+    elQmean.textContent = showAnswer ? '뜻: ' + q[4] : '';
+    elQhint.textContent = showAnswer ? '' : (state.hinted ? '✨ 반짝이는 방울을 찾아요!' : '');
+    elQuiz.classList.toggle('hint', state.hinted && !showAnswer);
+  }
+
+  function nextQuestion(first) {
+    if (!first) state.qIndex++;
+    if (state.qIndex >= Q_PER_GAME) { finishQuiz(); return; }
+    curQ = quizSet[state.qIndex];
+    state.qTime = 0; state.hinted = false; state.reveal = 0;
+    state.waveTimer = 400;
+    elQuiz.classList.add('on');
+    renderQuiz(false);
+  }
+
+  function finishQuiz() {
+    state.mode = 'gameover';
+    elQuiz.classList.remove('on');
+    updateHud();
+    var paint = state.correct >= 6 ? 1 : 0;
+    if (paint) { try { localStorage.setItem('agjj_pending_paint', String((parseInt(localStorage.getItem('agjj_pending_paint') || '0', 10) || 0) + paint)); } catch (e) {} }
+    screenGameOver();
+  }
+
+  function measureWord(t) {
+    ctx.save();
+    ctx.font = '800 15px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    var w = ctx.measureText(t).width;
+    ctx.restore();
+    return w;
+  }
+
+  // 한 번에 3개(정답 1 + 오답 2) 방울을 떨어뜨려요
+  function spawnWave() {
+    var q = curQ;
+    var wrong = q[3].slice().sort(function () { return Math.random() - 0.5; }).slice(0, W < 340 ? 1 : 2);
+    var words = [{ t: q[1], ok: true }].concat(wrong.map(function (t) { return { t: t, ok: false }; }));
+    words.sort(function () { return Math.random() - 0.5; });
+    var n = words.length, colW = (W - 16) / n;
+    var top = quizTop();
+    var diff = Math.min(state.qIndex / Q_PER_GAME, 1);
+    for (var i = 0; i < n; i++) {
+      var tw = measureWord(words[i].t);
+      var rx = Math.min(colW / 2 - 4, tw / 2 + 14), ry = 19;
+      var cx = 8 + colW * i + colW / 2;
+      enemies.push({
+        type: 'word', text: words[i].t, ok: words[i].ok,
+        x: cx, y: top - ry - rand(0, 60), r: ry, rx: rx, ry: ry,
+        hp: 1, maxhp: 1, pts: 100,
+        color: PALETTE[(Math.random() * PALETTE.length) | 0],
+        vy: rand(0.042, 0.056) + diff * 0.02,
+        baseX: cx, amp: Math.max(0, Math.min(14, colW / 2 - rx - 4)),
+        phase: rand(0, Math.PI * 2), spd: rand(0.0008, 0.0016),
+        rot: 0, spin: 0, flash: 0, sparkle: 0
+      });
     }
+  }
 
-    var margin = r + 14;
-    var baseX = rand(margin, Math.max(margin + 1, W - margin));
-
-    enemies.push({
-      type: type,
-      x: baseX, y: -r - 12, r: r,
-      hp: hp, maxhp: hp, pts: pts, color: color,
-      vy: rand(0.085, 0.145) + diff * 0.085,
-      baseX: baseX,
-      amp: rand(8, Math.min(44, W * 0.14)),
-      phase: rand(0, Math.PI * 2),
-      spd: rand(0.0007, 0.0019),
-      rot: rand(0, Math.PI * 2),
-      spin: rand(-0.0016, 0.0016),
-      flash: 0
-    });
+  function hitWord(tgt) {
+    if (tgt.ok) {
+      state.combo++;
+      if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+      state.correct++;
+      var fast = Math.max(0, Math.round(50 - state.qTime / 140));
+      var bonus = Math.min(100, (state.combo - 1) * 20);
+      var pts = 100 + bonus + fast - (state.hinted ? 30 : 0);
+      state.score += pts;
+      sfx.powerup();
+      addSplatter(tgt.x, tgt.y, GOLD, tgt.rx);
+      burst(tgt.x, tgt.y, GOLD, 26, 1.3);
+      burst(tgt.x, tgt.y, tgt.color, 14, 1);
+      addFloater(tgt.x, tgt.y, '정답! +' + pts + (state.combo >= 2 ? ' (' + state.combo + ' 콤보)' : ''), TERRA);
+      state.shake = Math.max(state.shake, 160);
+      if (state.combo % 3 === 0) spawnItem(tgt.x, tgt.y);
+      learned.push(curQ);
+      // 나머지 방울은 팡팡 터뜨리고 정답 문장 보여주기
+      for (var k = enemies.length - 1; k >= 0; k--) {
+        if (enemies[k] !== tgt) burst(enemies[k].x, enemies[k].y, enemies[k].color, 8, 0.8);
+      }
+      enemies.length = 0;
+      bullets.length = 0;
+      state.reveal = 2600;
+      renderQuiz(true);
+    } else {
+      var lost = state.combo;
+      state.combo = 0;
+      sfx.damage();
+      addSplatter(tgt.x, tgt.y, '#9a948a', tgt.rx * 0.8);
+      burst(tgt.x, tgt.y, '#9a948a', 10, 0.9);
+      addFloater(tgt.x, tgt.y, '땡! ✗' + (lost >= 2 ? ' 콤보 끊김' : ''), '#7a756d');
+    }
+    updateHud();
   }
 
   function makeBullet(x, y, vx) {
@@ -506,9 +669,6 @@
       bullets.push(makeBullet(player.x, player.y - 16, 0));
       bullets.push(makeBullet(player.x - 8, player.y - 11, -0.11));
       bullets.push(makeBullet(player.x + 8, player.y - 11, 0.11));
-    } else if (state.score >= 300) {
-      bullets.push(makeBullet(player.x - 7, player.y - 12, -0.05));
-      bullets.push(makeBullet(player.x + 7, player.y - 12, 0.05));
     } else {
       bullets.push(makeBullet(player.x, player.y - 16, 0));
     }
@@ -596,17 +756,29 @@
     player.trail.push({ x: player.x, y: player.y + 10 });
     if (player.trail.length > 14) player.trail.shift();
 
-    state.fireTimer -= dt;
-    if (state.fireTimer <= 0) {
-      shoot();
-      state.fireTimer = 185 - Math.min(55, state.score * 0.045);
-    }
+    // 정답을 보여주는 동안은 잠깐 쉬어요
+    if (state.reveal > 0) {
+      state.reveal -= dt;
+      if (state.reveal <= 0) nextQuestion(false);
+      if (state.mode !== 'playing') return;
+    } else {
+      state.qTime += dt;
+      elQbar.style.transform = 'scaleX(' + Math.max(0, 1 - state.qTime / HINT_MS) + ')';
+      if (!state.hinted && state.qTime >= HINT_MS) { state.hinted = true; renderQuiz(false); sfx.powerup(); }
 
-    state.spawnTimer -= dt;
-    if (state.spawnTimer <= 0) {
-      spawnEnemy();
-      var base = 860 - Math.min(500, state.score * 0.36);
-      state.spawnTimer = base * rand(0.72, 1.15);
+      state.fireTimer -= dt;
+      if (state.fireTimer <= 0) {
+        shoot();
+        state.fireTimer = 260;
+      }
+
+      state.waveTimer -= dt;
+      var onScreen = 0;
+      for (var oc = 0; oc < enemies.length; oc++) if (enemies[oc].ok) onScreen++;
+      if (state.waveTimer <= 0 && onScreen < 2) {
+        spawnWave();
+        state.waveTimer = WAVE_MS * rand(0.9, 1.15);
+      }
     }
 
     for (var b = bullets.length - 1; b >= 0; b--) {
@@ -649,14 +821,15 @@
       en.x = clamp(en.baseX + Math.sin(state.elapsed * en.spd + en.phase) * en.amp, en.r + 6, W - en.r - 6);
       en.rot += en.spin * dt;
       if (en.flash > 0) en.flash -= dt;
-
-      if (en.y - en.r > H + 20) {
-        if (state.combo > 0) {
-          state.combo = 0;
-          updateHud();
+      if (state.hinted && en.ok) {
+        en.sparkle += dt;
+        if (Math.random() < dt * 0.012) {
+          var sa = rand(0, Math.PI * 2);
+          particles.push({ x: en.x + Math.cos(sa) * en.rx, y: en.y + Math.sin(sa) * en.ry, vx: Math.cos(sa) * 0.03, vy: -0.03, r: rand(1.4, 2.8), life: 0, max: 520, color: Math.random() < 0.5 ? GOLD : '#ffe9a0', star: true });
         }
-        enemies.splice(e, 1);
       }
+
+      if (en.y - en.r > H + 20) enemies.splice(e, 1);
     }
 
     for (var bi = bullets.length - 1; bi >= 0; bi--) {
@@ -664,53 +837,24 @@
       var hit = false;
       for (var ei = enemies.length - 1; ei >= 0; ei--) {
         var tgt = enemies[ei];
-        var ddx = bullet.x - tgt.x;
-        var ddy = bullet.y - tgt.y;
-        if (ddx * ddx + ddy * ddy < (tgt.r + bullet.r) * (tgt.r + bullet.r)) {
-          tgt.hp--;
-          tgt.flash = 120;
+        var ex = (bullet.x - tgt.x) / (tgt.rx + bullet.r);
+        var ey = (bullet.y - tgt.y) / (tgt.ry + bullet.r);
+        if (ex * ex + ey * ey < 1) {
           hit = true;
-          burst(bullet.x, bullet.y, tgt.color, 4, 0.7);
-
-          if (tgt.hp <= 0) {
-            state.combo++;
-            if (state.combo > state.maxCombo) state.maxCombo = state.combo;
-
-            var bonus = Math.floor(tgt.pts * Math.min(1, (state.combo - 1) * 0.1));
-            var totalPts = tgt.pts + bonus;
-            state.score += totalPts;
-
-            sfx.pop(state.combo);
-            addSplatter(tgt.x, tgt.y, tgt.color, tgt.r * 1.15);
-
-            var label = '+' + totalPts + (state.combo >= 3 ? ' (' + state.combo + ' COMBO)' : '');
-            addFloater(tgt.x, tgt.y, label, tgt.color);
-            burst(tgt.x, tgt.y, tgt.color, tgt.type === 'gold' ? 22 : 12, 1);
-
-            if (tgt.type === 'gold') {
-              state.shake = Math.max(state.shake, 160);
-              spawnItem(tgt.x, tgt.y);
-            } else if (tgt.type === 'frame' && Math.random() < 0.35) {
-              spawnItem(tgt.x, tgt.y);
-            }
-
-            enemies.splice(ei, 1);
-            updateHud();
-          } else {
-            sfx.hit();
-          }
+          enemies.splice(ei, 1);
+          hitWord(tgt);
           break;
         }
       }
       if (hit) bullets.splice(bi, 1);
+      if (state.reveal > 0) break;
     }
 
     for (var ci = enemies.length - 1; ci >= 0; ci--) {
       var ce = enemies[ci];
-      var px = ce.x - player.x;
-      var py = ce.y - player.y;
-      var rr = ce.r + player.r * 0.78;
-      if (px * px + py * py < rr * rr) {
+      var px = (ce.x - player.x) / (ce.rx + player.r * 0.7);
+      var py = (ce.y - player.y) / (ce.ry + player.r * 0.7);
+      if (px * px + py * py < 1) {
         burst(ce.x, ce.y, ce.color, 14, 1.1);
         addSplatter(ce.x, ce.y, ce.color, ce.r);
         enemies.splice(ci, 1);
@@ -833,42 +977,49 @@
     ctx.restore();
   }
 
+  function roundRectPath(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
   function drawEnemies() {
     for (var i = 0; i < enemies.length; i++) {
       var en = enemies[i];
+      var glow = state.hinted && en.ok;
       ctx.save();
       ctx.translate(en.x, en.y);
-      ctx.rotate(en.rot);
-      if (en.type === 'frame') {
-        // 액자: 두 번 맞혀야 부서져요
-        ctx.strokeStyle = en.flash > 0 ? TERRA : INK;
-        ctx.lineWidth = en.hp === en.maxhp ? 4 : 2.5;
-        ctx.strokeRect(-en.r, -en.r * 0.8, en.r * 2, en.r * 1.6);
-        ctx.fillStyle = 'rgba(176,139,87,0.22)';
-        ctx.fillRect(-en.r + 4, -en.r * 0.8 + 4, en.r * 2 - 8, en.r * 1.6 - 8);
-        if (en.hp < en.maxhp) {
-          ctx.strokeStyle = 'rgba(28,27,25,0.5)'; ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(-en.r * 0.6, -en.r * 0.5); ctx.lineTo(en.r * 0.2, en.r * 0.1); ctx.lineTo(en.r * 0.5, en.r * 0.6); ctx.stroke();
-        }
-      } else {
-        // 물감 방울 (금색은 보너스)
-        ctx.fillStyle = en.flash > 0 ? '#fffdf8' : en.color;
-        ctx.beginPath();
-        for (var k = 0; k <= 8; k++) {
-          var a = (k / 8) * Math.PI * 2;
-          var rr = en.r * (0.86 + 0.14 * Math.sin(a * 3 + en.phase));
-          var x = Math.cos(a) * rr, y = Math.sin(a) * rr;
-          if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.35)';
-        ctx.beginPath(); ctx.arc(-en.r * 0.3, -en.r * 0.35, en.r * 0.22, 0, Math.PI * 2); ctx.fill();
-        if (en.type === 'gold') {
-          ctx.strokeStyle = '#fff3c4'; ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.arc(0, 0, en.r + 4 + Math.sin(state.elapsed * 0.012) * 2, 0, Math.PI * 2); ctx.stroke();
-        }
+      if (glow) {
+        var pulse = 0.5 + 0.5 * Math.sin(state.elapsed * 0.012);
+        ctx.shadowColor = '#ffd23f';
+        ctx.shadowBlur = 14 + pulse * 18;
+        ctx.strokeStyle = 'rgba(255, 210, 63,' + (0.55 + pulse * 0.45) + ')';
+        ctx.lineWidth = 4;
+        roundRectPath(-en.rx - 5, -en.ry - 5, en.rx * 2 + 10, en.ry * 2 + 10, en.ry + 5);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
       }
+      // 물감 방울 모양 (울퉁불퉁 테두리)
+      ctx.fillStyle = glow ? GOLD : en.color;
+      roundRectPath(-en.rx, -en.ry, en.rx * 2, en.ry * 2, en.ry);
+      ctx.fill();
+      for (var k = 0; k < 3; k++) {
+        var dx = (-0.6 + k * 0.6) * en.rx;
+        ctx.beginPath();
+        ctx.arc(dx, en.ry - 1, 3 + Math.sin(state.elapsed * 0.004 + k + en.phase) * 1.2 + 2, 0, Math.PI);
+        ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.beginPath(); ctx.ellipse(-en.rx * 0.55, -en.ry * 0.45, en.ry * 0.38, en.ry * 0.2, -0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fffdf8';
+      ctx.font = '800 15px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 3;
+      ctx.fillText(en.text, 0, 1);
       ctx.restore();
     }
   }
@@ -906,7 +1057,15 @@
       var p = particles[i];
       ctx.globalAlpha = Math.max(0, 1 - p.life / p.max);
       ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      if (p.star) {
+        var s2 = p.r * 2.2;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y - s2); ctx.quadraticCurveTo(p.x, p.y, p.x + s2, p.y);
+        ctx.quadraticCurveTo(p.x, p.y, p.x, p.y + s2); ctx.quadraticCurveTo(p.x, p.y, p.x - s2, p.y);
+        ctx.quadraticCurveTo(p.x, p.y, p.x, p.y - s2); ctx.fill();
+      } else {
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
   }
@@ -914,7 +1073,7 @@
   function drawFloaters() {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = '600 12px "Helvetica Neue", Arial, sans-serif';
+    ctx.font = '800 14px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
     for (var i = 0; i < floaters.length; i++) {
       var f = floaters[i];
       ctx.globalAlpha = Math.max(0, 1 - f.life / f.max);
