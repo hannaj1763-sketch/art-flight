@@ -86,6 +86,22 @@
   #quiz .tbar i{display:block;height:100%;width:100%;background:var(--gold);transform-origin:left;}
   #quiz.hint .tbar i{background:#e8b923;}
   #quiz .htxt{font-size:11px;color:#b08b57;margin-top:3px;min-height:14px;}
+
+  /* 정답! 화면 가득 속담 */
+  #bigQ{
+    position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:24px 18px;text-align:center;pointer-events:none;opacity:0;visibility:hidden;
+    background:radial-gradient(ellipse at center, rgba(255,250,238,.97) 0%, rgba(250,240,220,.95) 70%, rgba(240,225,195,.93) 100%);
+    transition:opacity .25s, visibility .25s;
+  }
+  #bigQ.on{opacity:1;visibility:visible;}
+  #bigQ .ok{font-size:13px;letter-spacing:.3em;color:var(--terra);font-weight:800;}
+  #bigQ .pv{font-size:clamp(26px,8.2vw,44px);font-weight:900;line-height:1.35;margin:10px 0 12px;word-break:keep-all;color:#2a2622;}
+  #bigQ .pv b{color:var(--terra);background:linear-gradient(transparent 62%, rgba(212,168,83,.45) 62%);padding:0 4px;}
+  #bigQ .mn{font-size:clamp(14px,4vw,18px);color:#5c5a55;line-height:1.5;max-width:30em;word-break:keep-all;}
+  #bigQ.on .pv{animation:bigPop .5s cubic-bezier(.2,1.4,.4,1);}
+  @keyframes bigPop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+  @media (orientation:landscape) and (max-height:500px){ #bigQ .pv{font-size:clamp(22px,5vw,34px);margin:6px 0 8px;} }
   .learned{max-height:34vh;overflow-y:auto;text-align:left;font-size:12px;line-height:1.5;margin:0 0 14px;border-top:1px solid var(--line);padding-top:8px;}
   .learned div{padding:5px 0;border-bottom:1px dashed var(--line);word-break:keep-all;}
   .learned b{color:var(--terra);}
@@ -161,6 +177,7 @@
   <main>
     <div id="frame">
       <canvas id="game"></canvas>
+      <div id="bigQ"><div class="ok">✨ 정답 ✨</div><div class="pv" id="bigPv"></div><div class="mn" id="bigMn"></div></div>
       <div id="quiz"><div class="qn" id="qn"></div><div class="qt" id="qt"></div><div class="mean" id="qmean"></div><div class="tbar"><i id="qbar"></i></div><div class="htxt" id="qhint"></div></div>
       <div class="overlay" id="overlay"></div>
     </div>
@@ -320,7 +337,7 @@
     correct: 0,
     hinted: false
   };
-  var Q_PER_GAME = 10, HINT_MS = 7000, WAVE_MS = 3300;
+  var Q_PER_GAME = 10, HINT_MS = 6000, WAVE_MS = 2300;
   var quizSet = [], curQ = null, learned = [];
   var elQuiz = document.getElementById('quiz');
   var elQn = document.getElementById('qn');
@@ -492,6 +509,7 @@
   }
 
   function startGame() {
+    hideBigProverb();
     initAudio();
     resetGame();
     state.mode = 'playing';
@@ -510,6 +528,7 @@
   }
 
   function gameOver() {
+    hideBigProverb();
     state.mode = 'gameover';
     elQuiz.classList.remove('on');
     pointer.drag = false;
@@ -570,7 +589,16 @@
     elQuiz.classList.toggle('hint', state.hinted && !showAnswer);
   }
 
+  function showBigProverb(q) {
+    document.getElementById('bigPv').innerHTML = q[0] + ' <b>' + q[1] + '</b>' + (q[2] ? ' ' + q[2] : '');
+    document.getElementById('bigMn').textContent = q[4];
+    var el = document.getElementById('bigQ');
+    el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  }
+  function hideBigProverb() { document.getElementById('bigQ').classList.remove('on'); }
+
   function nextQuestion(first) {
+    hideBigProverb();
     if (!first) state.qIndex++;
     if (state.qIndex >= Q_PER_GAME) { finishQuiz(); return; }
     curQ = quizSet[state.qIndex];
@@ -615,7 +643,7 @@
         x: cx, y: top - ry - rand(0, 60), r: ry, rx: rx, ry: ry,
         hp: 1, maxhp: 1, pts: 100,
         color: PALETTE[(Math.random() * PALETTE.length) | 0],
-        vy: rand(0.042, 0.056) + diff * 0.02,
+        vy: rand(0.075, 0.095) + diff * 0.035,
         baseX: cx, amp: Math.max(0, Math.min(14, colW / 2 - rx - 4)),
         phase: rand(0, Math.PI * 2), spd: rand(0.0008, 0.0016),
         rot: 0, spin: 0, flash: 0, sparkle: 0
@@ -646,7 +674,8 @@
       }
       enemies.length = 0;
       bullets.length = 0;
-      state.reveal = 2600;
+      state.reveal = 3200;
+      showBigProverb(curQ);
       renderQuiz(true);
     } else {
       var lost = state.combo;
