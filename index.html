@@ -430,7 +430,8 @@
         '<h2>아트 비행 · 속담 부수기</h2>' +
         '<p class="desc">위에 나온 속담의 <b>빈칸</b>에 들어갈 말을 찾아<br>그 말이 적힌 물감 방울을 쏘세요!</p>' +
         '<ul class="keys">' +
-          '<li><b>정답</b> 큰 점수 + 콤보 · <b>틀린 말</b> 콤보가 끊겨요</li>' +
+          '<li><b>정답 방울은 3번</b> 맞혀야 터져요 · <b>틀린 말</b> −20점, 콤보 끊김</li>' +
+          '<li>💣 먹물 폭탄은 쏘거나 피하고, ⭐ 별과 🎁 선물은 쏘거나 잡아요</li>' +
           '<li>못 찾고 있으면 <b>정답 방울이 반짝반짝</b> 빛나요</li>' +
           '<li><b>화면 드래그</b> 또는 <b>← →</b>로 이동 · 방울에 부딪히면 ● 하나 잃어요</li>' +
         '</ul>' +
@@ -628,7 +629,7 @@
   // 한 번에 3개(정답 1 + 오답 2) 방울을 떨어뜨려요
   function spawnWave() {
     var q = curQ;
-    var wrong = q[3].slice().sort(function () { return Math.random() - 0.5; }).slice(0, W < 340 ? 1 : 2);
+    var wrong = q[3].slice().sort(function () { return Math.random() - 0.5; }).slice(0, 2);
     var words = [{ t: q[1], ok: true }].concat(wrong.map(function (t) { return { t: t, ok: false }; }));
     words.sort(function () { return Math.random() - 0.5; });
     var n = words.length, colW = (W - 16) / n;
@@ -641,11 +642,11 @@
       enemies.push({
         type: 'word', text: words[i].t, ok: words[i].ok,
         x: cx, y: top - ry - rand(0, 60), r: ry, rx: rx, ry: ry,
-        hp: 1, maxhp: 1, pts: 100,
+        hp: words[i].ok ? 3 : 1, maxhp: words[i].ok ? 3 : 1, pts: 100,
         color: PALETTE[(Math.random() * PALETTE.length) | 0],
         vy: rand(0.075, 0.095) + diff * 0.035,
-        baseX: cx, amp: Math.max(0, Math.min(14, colW / 2 - rx - 4)),
-        phase: rand(0, Math.PI * 2), spd: rand(0.0008, 0.0016),
+        baseX: cx, amp: Math.max(6, Math.min(30, colW / 2 - rx + 10)),
+        phase: rand(0, Math.PI * 2), spd: rand(0.0016, 0.0028),
         rot: 0, spin: 0, flash: 0, sparkle: 0
       });
     }
@@ -683,7 +684,42 @@
       sfx.damage();
       addSplatter(tgt.x, tgt.y, '#9a948a', tgt.rx * 0.8);
       burst(tgt.x, tgt.y, '#9a948a', 10, 0.9);
-      addFloater(tgt.x, tgt.y, '땡! ✗' + (lost >= 2 ? ' 콤보 끊김' : ''), '#7a756d');
+      state.score = Math.max(0, state.score - 20);
+      addFloater(tgt.x, tgt.y, '땡! −20' + (lost >= 2 ? ' 콤보 끊김' : ''), '#7a756d');
+    }
+    updateHud();
+  }
+
+  /* ---------- 다른 목표물: 먹물 폭탄 · 별 · 선물 ---------- */
+  function spawnExtra() {
+    var r = Math.random();
+    var kind = r < 0.55 ? 'bomb' : r < 0.85 ? 'star' : 'gift';
+    var top = quizTop();
+    var rad = kind === 'bomb' ? 15 : 13;
+    var x = rand(rad + 10, W - rad - 10);
+    enemies.push({
+      type: kind, ok: false, text: '',
+      x: x, y: top - rad, r: rad, rx: rad, ry: rad, hp: 1, maxhp: 1,
+      color: kind === 'bomb' ? '#2b2b33' : kind === 'star' ? GOLD : '#8a5b7a',
+      vy: kind === 'star' ? rand(0.13, 0.17) : rand(0.09, 0.12),
+      baseX: x, amp: kind === 'star' ? 40 : 12, phase: rand(0, Math.PI * 2), spd: kind === 'star' ? 0.004 : 0.002,
+      rot: 0, spin: kind === 'bomb' ? 0.002 : 0.004, flash: 0, sparkle: 0
+    });
+  }
+  function hitExtra(t, byPlayer) {
+    if (t.type === 'bomb') {
+      if (byPlayer) { damagePlayer(); burst(t.x, t.y, '#2b2b33', 18, 1.3); addSplatter(t.x, t.y, '#2b2b33', 18); return; }
+      state.score += 15; sfx.hit && sfx.hit();
+      burst(t.x, t.y, '#2b2b33', 16, 1.2); addSplatter(t.x, t.y, '#3a3a44', 14);
+      addFloater(t.x, t.y, '💥 폭탄 제거 +15', '#3a3a44');
+    } else if (t.type === 'star') {
+      state.score += 50; sfx.powerup();
+      burst(t.x, t.y, GOLD, 20, 1.2);
+      addFloater(t.x, t.y, '⭐ 보너스 +50', GOLD);
+    } else if (t.type === 'gift') {
+      sfx.powerup(); burst(t.x, t.y, '#8a5b7a', 14, 1);
+      spawnItem(t.x, t.y);
+      addFloater(t.x, t.y, '🎁 아이템!', '#8a5b7a');
     }
     updateHud();
   }
@@ -801,6 +837,9 @@
         state.fireTimer = 260;
       }
 
+      state.extraTimer = (state.extraTimer || 1500) - dt;
+      if (state.extraTimer <= 0) { spawnExtra(); state.extraTimer = rand(1400, 2400) - Math.min(600, state.qIndex * 60); }
+
       state.waveTimer -= dt;
       var onScreen = 0;
       for (var oc = 0; oc < enemies.length; oc++) if (enemies[oc].ok) onScreen++;
@@ -870,6 +909,14 @@
         var ey = (bullet.y - tgt.y) / (tgt.ry + bullet.r);
         if (ex * ex + ey * ey < 1) {
           hit = true;
+          if (tgt.type !== 'word') { enemies.splice(ei, 1); hitExtra(tgt, false); break; }
+          tgt.hp--;
+          if (tgt.hp > 0) {
+            tgt.flash = 140;
+            burst(bullet.x, bullet.y, GOLD, 6, 0.7);
+            addFloater(tgt.x, tgt.y - tgt.ry - 6, (tgt.maxhp - tgt.hp) + '/' + tgt.maxhp, TERRA);
+            break;
+          }
           enemies.splice(ei, 1);
           hitWord(tgt);
           break;
@@ -884,6 +931,7 @@
       var px = (ce.x - player.x) / (ce.rx + player.r * 0.7);
       var py = (ce.y - player.y) / (ce.ry + player.r * 0.7);
       if (px * px + py * py < 1) {
+        if (ce.type !== 'word') { enemies.splice(ci, 1); hitExtra(ce, ce.type === 'bomb'); break; }
         burst(ce.x, ce.y, ce.color, 14, 1.1);
         addSplatter(ce.x, ce.y, ce.color, ce.r);
         enemies.splice(ci, 1);
@@ -1016,9 +1064,32 @@
     ctx.closePath();
   }
 
+  function drawExtra(en) {
+    ctx.save();
+    ctx.translate(en.x, en.y);
+    ctx.rotate(Math.sin(state.elapsed * en.spin + en.phase) * 0.4);
+    if (en.type === 'star') {
+      ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = 12;
+    }
+    ctx.fillStyle = en.type === 'bomb' ? '#2b2b33' : en.type === 'star' ? '#fff3c4' : '#f3e3ef';
+    ctx.beginPath(); ctx.arc(0, 0, en.r, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 2; ctx.strokeStyle = en.type === 'bomb' ? '#ff5a4f' : en.type === 'star' ? GOLD : '#8a5b7a';
+    ctx.stroke();
+    ctx.font = (en.r * 1.25) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(en.type === 'bomb' ? '💣' : en.type === 'star' ? '⭐' : '🎁', 0, 1);
+    if (en.type === 'bomb') {   // 깜빡이는 불꽃
+      ctx.fillStyle = (Math.floor(state.elapsed / 120) % 2) ? '#ffb020' : '#ff5a4f';
+      ctx.beginPath(); ctx.arc(en.r * 0.55, -en.r * 0.85, 2.6, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawEnemies() {
     for (var i = 0; i < enemies.length; i++) {
       var en = enemies[i];
+      if (en.type !== 'word') { drawExtra(en); continue; }
       var glow = state.hinted && en.ok;
       ctx.save();
       ctx.translate(en.x, en.y);
@@ -1049,6 +1120,14 @@
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 3;
       ctx.fillText(en.text, 0, 1);
+      if (en.maxhp > 1) {   // 남은 힘(3번 맞혀야 터져요)
+        ctx.shadowBlur = 0;
+        for (var hp = 0; hp < en.maxhp; hp++) {
+          ctx.fillStyle = hp < en.hp ? '#c06a45' : 'rgba(0,0,0,.12)';
+          ctx.beginPath(); ctx.arc((hp - (en.maxhp - 1) / 2) * 11, en.ry + 13, 3.6, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      if (en.flash > 0) { ctx.globalAlpha = en.flash / 140 * 0.6; ctx.fillStyle = '#fff'; roundRectPath(-en.rx, -en.ry, en.rx * 2, en.ry * 2, en.ry); ctx.fill(); ctx.globalAlpha = 1; }
       ctx.restore();
     }
   }
